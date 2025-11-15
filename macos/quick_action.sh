@@ -1,7 +1,8 @@
 #!/bin/zsh
 set -euo pipefail
 
-WORKDIR="$HOME/dev/codex/getcalendarevents"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+WORKDIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 VENV_PATH="$WORKDIR/.venv/bin/activate"
 
 if [[ ! -d "$WORKDIR" ]]; then
