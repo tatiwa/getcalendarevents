@@ -135,30 +135,39 @@ def format_start_time(start: dict) -> str:
         try:
             parsed = dt.datetime.fromisoformat(raw_dt)
         except ValueError:
-            return f"{raw_dt} (raw)"
+            return raw_dt
         local_dt = parsed.astimezone(LOCAL_TZ)
-        tz_label = local_dt.tzname() or LOCAL_TZ_NAME
-        return f"{local_dt.strftime('%Y-%m-%d %H:%M')} ({tz_label})"
+        return local_dt.strftime("%H:%M")
     if raw_date:
-        return f"{raw_date} (all-day)"
+        return "All-day"
     return "?"
 
 
-def format_events_text(events: list[dict]) -> str:
+def format_day_header(day: dt.date) -> str:
+    header_dt = dt.datetime.combine(day, dt.time.min, tzinfo=LOCAL_TZ)
+    tz_label = header_dt.tzname() or LOCAL_TZ_NAME
+    return f"{day.isoformat()} ({tz_label})"
+
+
+def format_events_text(events: list[dict], day: dt.date) -> str:
+    header = format_day_header(day)
     if not events:
-        return "No events."
-    blocks = []
+        return f"{header}\nNo events."
+
+    lines = [header, ""]
     for event in events:
         start_value, summary, html_link = extract_event_fields(event)
         link_text = f"[{summary}]({html_link})" if html_link else summary
-        blocks.append(f"{start_value} - {link_text}")
-    return "\n".join(blocks)
+        lines.append(f"{start_value} - {link_text}")
+    return "\n".join(lines)
 
 
-def format_events_html(events: list[dict]) -> str:
+def format_events_html(events: list[dict], day: dt.date) -> str:
+    header_html = escape(format_day_header(day))
     if not events:
-        return "<p>No events.</p>"
-    parts = ["<html><body>"]
+        return f"<html><body><p><strong>{header_html}</strong></p><p>No events.</p></body></html>"
+
+    parts = ["<html><body>", f"<p><strong>{header_html}</strong></p>", "<ul>"]
     for event in events:
         start_value, summary, html_link = extract_event_fields(event)
         start_html = escape(start_value)
@@ -167,8 +176,8 @@ def format_events_html(events: list[dict]) -> str:
             link_html = f'<a href="{escape(html_link)}">{summary_html}</a>'
         else:
             link_html = summary_html
-        parts.append(f"<p><strong>{start_html}</strong> - {link_html}</p>")
-    parts.append("</body></html>")
+        parts.append(f"<li><strong>{start_html}</strong> - {link_html}</li>")
+    parts.append("</ul></body></html>")
     return "".join(parts)
 
 
@@ -253,8 +262,8 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
     service = build_calendar_service(creds)
     target_day = parse_date(args.date)
     events = fetch_events_for_day(service, target_day)
-    plain_output = format_events_text(events)
-    html_output = format_events_html(events)
+    plain_output = format_events_text(events, target_day)
+    html_output = format_events_html(events, target_day)
     event_count = len(events)
     print(f"Fetched {event_count} event(s) for {target_day}:")
     if args.dry_run:
